@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, SetStateAction } from "react";
 import {
   Loader2,
   Droplets,
@@ -8,6 +8,7 @@ import {
   Wifi,
   Timer,
   History,
+  ExternalLink,
 } from "lucide-react";
 import {
   requestAirdrop,
@@ -15,6 +16,11 @@ import {
   validateWallet,
   NetworkType,
 } from "../lib/solana";
+import { TransactionStorage, WalletUtils } from "../lib/storage";
+import { SecurityUtils } from "../lib/security";
+import { clusterApiUrl, Connection } from "@solana/web3.js";
+import ReCAPTCHA from "react-google-recaptcha";
+import PhantomWallet from "./PhantomWallet";
 
 const FaucetApp = () => {
   const [wallet, setWallet] = useState("");
@@ -33,6 +39,8 @@ const FaucetApp = () => {
       signature?: string;
     }>
   >([]);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   useEffect(() => {
     const checkNetwork = async () => {
@@ -45,30 +53,57 @@ const FaucetApp = () => {
     return () => clearInterval(interval);
   }, [network]);
 
+  useEffect(() => {
+    const loadTransactions = () => {
+      const stored = TransactionStorage.getTransactions();
+      setRecentDrops(
+        stored.map((tx) => ({
+          address: tx.address.slice(0, 6) + "...",
+          amount: tx.amount,
+          timestamp: new Date(tx.timestamp).toLocaleTimeString(),
+          signature: tx.signature,
+        }))
+      );
+    };
+
+    loadTransactions();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setStatus({ type: "loading", message: "Initiating airdrop sequence..." });
+    setStatus({ type: "loading", message: "Verifying request..." });
 
     try {
-      if (!validateWallet(wallet)) {
-        throw new Error("Invalid wallet address");
+      if (!captchaToken) {
+        throw new Error("Please complete the CAPTCHA");
       }
 
-      setStatus({ type: "loading", message: "Requesting airdrop..." });
+      if (!(await SecurityUtils.verifyIpLimit("user-ip"))) {
+        throw new Error("Rate limit exceeded. Please try again later.");
+      }
       const result = await requestAirdrop(wallet, network);
 
       if (result.success) {
+        TransactionStorage.addTransaction({
+          address: wallet,
+          amount: "1 SOL",
+          timestamp: Date.now(),
+          signature: result.signature!,
+          network,
+        });
+
         setStatus({ type: "success", message: result.message });
-        setRecentDrops((prev) => [
-          {
-            address: wallet.slice(0, 6) + "...",
-            amount: "1 SOL",
-            timestamp: "just now",
-            signature: result.signature,
-          },
-          ...prev.slice(0, 4),
-        ]);
+        // Refresh transactions list
+        const stored = TransactionStorage.getTransactions();
+        setRecentDrops(
+          stored.map((tx) => ({
+            address: tx.address.slice(0, 6) + "...",
+            amount: tx.amount,
+            timestamp: new Date(tx.timestamp).toLocaleTimeString(),
+            signature: tx.signature,
+          }))
+        );
       } else {
         setStatus({ type: "error", message: result.message });
       }
@@ -82,8 +117,58 @@ const FaucetApp = () => {
       });
     } finally {
       setLoading(false);
+      setCaptchaToken(null);
     }
   };
+
+  const handleWalletConnect = async (address: string | null) => {
+    if (address) {
+      setWallet(address);
+      const connection = new Connection(clusterApiUrl(network));
+      const bal = await WalletUtils.getBalance(address, connection);
+      setBalance(bal);
+    }
+  };
+
+  // Add this to your existing JSX, inside the form
+  const captchaSection = (
+    <div className="mt-4">
+      <ReCAPTCHA
+        sitekey="YOUR_RECAPTCHA_SITE_KEY"
+        onChange={(token: SetStateAction<string | null>) =>
+          setCaptchaToken(token)
+        }
+      />
+    </div>
+  );
+
+  // Add this to your recent transactions section
+  const transactionLink = (signature: string) => (
+    <a
+      href={WalletUtils.getExplorerUrl(signature, network)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-purple-400 hover:text-purple-300 inline-flex items-center gap-1"
+    >
+      <ExternalLink size={12} />
+      View
+    </a>
+  );
+
+  // Add the wallet connection component near the top of your form
+  const walletSection = (
+    <div className="mb-6">
+      <PhantomWallet
+        onAddressChange={handleWalletConnect}
+        onNetworkChange={(network) => setNetwork(network as NetworkType)}
+      />
+      {balance !== null && (
+        <div className="mt-2 text-gray-400">
+          Balance: {balance.toFixed(4)} SOL
+        </div>
+      )}
+    </div>
+  );
 
   const networkSelector = (
     <div className="mb-4">
