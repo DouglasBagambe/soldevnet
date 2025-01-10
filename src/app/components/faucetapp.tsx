@@ -1,0 +1,255 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Loader2,
+  Droplets,
+  AlertCircle,
+  Wifi,
+  Timer,
+  History,
+} from "lucide-react";
+import {
+  requestAirdrop,
+  getNetworkStatus,
+  validateWallet,
+  NetworkType,
+} from "../lib/solana";
+
+const FaucetApp = () => {
+  const [wallet, setWallet] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: "", message: "" });
+  const [networkStatus, setNetworkStatus] = useState({
+    latency: 0,
+    status: "checking",
+  });
+  const [network, setNetwork] = useState<NetworkType>("devnet");
+  const [recentDrops, setRecentDrops] = useState<
+    Array<{
+      address: string;
+      amount: string;
+      timestamp: string;
+      signature?: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    const checkNetwork = async () => {
+      const status = await getNetworkStatus(network);
+      setNetworkStatus(status);
+    };
+
+    const interval = setInterval(checkNetwork, 5000);
+    checkNetwork();
+    return () => clearInterval(interval);
+  }, [network]);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setStatus({ type: "loading", message: "Initiating airdrop sequence..." });
+
+    try {
+      if (!validateWallet(wallet)) {
+        throw new Error("Invalid wallet address");
+      }
+
+      setStatus({ type: "loading", message: "Requesting airdrop..." });
+      const result = await requestAirdrop(wallet, network);
+
+      if (result.success) {
+        setStatus({ type: "success", message: result.message });
+        setRecentDrops((prev) => [
+          {
+            address: wallet.slice(0, 6) + "...",
+            amount: "1 SOL",
+            timestamp: "just now",
+            signature: result.signature,
+          },
+          ...prev.slice(0, 4),
+        ]);
+      } else {
+        setStatus({ type: "error", message: result.message });
+      }
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const networkSelector = (
+    <div className="mb-4">
+      <label className="block text-gray-400 mb-2">Network</label>
+      <select
+        aria-label="Network"
+        value={network}
+        onChange={(e) => setNetwork(e.target.value as NetworkType)}
+        className="w-full px-4 py-3 rounded-lg bg-black/30 border border-purple-500/30 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-purple-500/50"
+      >
+        <option value="devnet">Devnet</option>
+        <option value="testnet">Testnet</option>
+      </select>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-[radial-gradient(circle_at_50%_50%,_#1a1a1a,_#000)]">
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="relative w-full h-full">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-600/30 rounded-full filter blur-3xl animate-pulse" />
+          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-blue-600/20 rounded-full filter blur-3xl animate-pulse delay-1000" />
+        </div>
+      </div>
+
+      <div className="relative max-w-4xl mx-auto pt-12 px-4">
+        {/* Network Status Bar */}
+        <div className="absolute top-0 left-0 right-0 bg-black/40 backdrop-blur-lg border-b border-white/10 p-2">
+          <div className="flex items-center justify-between max-w-4xl mx-auto px-4 text-sm">
+            <div className="flex items-center gap-2">
+              <Wifi
+                size={16}
+                className={
+                  networkStatus.status === "operational"
+                    ? "text-green-400"
+                    : "text-yellow-400"
+                }
+              />
+              <span className="text-gray-400">Network Status: </span>
+              <span
+                className={
+                  networkStatus.status === "operational"
+                    ? "text-green-400"
+                    : "text-yellow-400"
+                }
+              >
+                {networkStatus.status.charAt(0).toUpperCase() +
+                  networkStatus.status.slice(1)}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Timer size={16} className="text-purple-400" />
+              <span className="text-gray-400">Latency: </span>
+              <span className="text-purple-400">{networkStatus.latency}ms</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center mb-12 mt-8">
+          <div className="relative inline-block">
+            <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-blue-500 animate-gradient-x mb-4">
+              Solana Faucet
+            </h1>
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg opacity-0 group-hover:opacity-100 blur transition" />
+          </div>
+          <p className="text-gray-400 text-lg">
+            Instant SOL delivery for Devnet & Testnet
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-[2fr,1fr] gap-6">
+          <div className="bg-black/60 backdrop-blur-xl rounded-2xl p-8 shadow-2xl border border-purple-500/20 hover:border-purple-500/40 transition-all">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-gray-400 mb-2">
+                  Wallet Address
+                </label>
+                <input
+                  type="text"
+                  value={wallet}
+                  onChange={(e) => setWallet(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-black/30 border border-purple-500/30 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all hover:border-purple-500/50"
+                  placeholder="Enter your Solana wallet address"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !wallet}
+                className="w-full py-3 px-6 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-500 hover:to-pink-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group relative overflow-hidden"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
+                {loading ? (
+                  <Loader2 className="animate-spin" size={20} />
+                ) : (
+                  <Droplets className="animate-bounce" size={20} />
+                )}
+                {loading ? "Airdropping..." : "Request SOL"}
+              </button>
+            </form>
+
+            {status.message && (
+              <div
+                className={`mt-6 p-4 rounded-lg flex items-center gap-2 animate-fadeIn ${
+                  status.type === "success"
+                    ? "bg-green-500/20 text-green-400"
+                    : status.type === "error"
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-purple-500/20 text-purple-400"
+                }`}
+              >
+                {status.type === "error" ? (
+                  <AlertCircle size={20} />
+                ) : (
+                  <Droplets
+                    size={20}
+                    className={
+                      status.type === "loading" ? "animate-bounce" : ""
+                    }
+                  />
+                )}
+                {status.message}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Transactions Panel */}
+          <div className="bg-black/60 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-purple-500/20">
+            <div className="flex items-center gap-2 mb-4 text-gray-400">
+              <History size={16} />
+              <h2 className="font-semibold">Recent Airdrops</h2>
+            </div>
+            <div className="space-y-3">
+              {recentDrops.map((drop, i) => (
+                <div
+                  key={i}
+                  className="bg-black/30 rounded-lg p-3 border border-purple-500/10 hover:border-purple-500/30 transition-all"
+                >
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">{drop.address}</span>
+                    <span className="text-purple-400">{drop.amount}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {drop.timestamp}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center text-sm">
+          <p className="text-gray-500">
+            Need help? Join our
+            <a
+              href="#"
+              className="text-purple-400 hover:text-purple-300 ml-1 transition-colors"
+            >
+              Discord community
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FaucetApp;
