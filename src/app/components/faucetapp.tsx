@@ -22,6 +22,12 @@ import { clusterApiUrl, Connection } from "@solana/web3.js";
 import ReCAPTCHA from "react-google-recaptcha";
 import PhantomWallet from "./PhantomWallet";
 
+declare global {
+  interface Window {
+    grecaptcha: any;
+  }
+}
+
 const FaucetApp = () => {
   const [wallet, setWallet] = useState("");
   const [loading, setLoading] = useState(false);
@@ -92,7 +98,8 @@ const FaucetApp = () => {
       }
 
       // Check rate limit
-      if (!(await SecurityUtils.verifyIpLimit("user-ip"))) {
+      const userIp = "user-ip"; // Ensure this is the actual user's IP
+      if (!(await SecurityUtils.verifyIpLimit(userIp))) {
         throw new Error("Rate limit exceeded. Please try again later.");
       }
 
@@ -107,6 +114,7 @@ const FaucetApp = () => {
         throw new Error("CAPTCHA verification failed");
       }
 
+      // Request airdrop after successful CAPTCHA verification
       const result = await requestAirdrop(wallet, network);
 
       if (result.success) {
@@ -135,14 +143,10 @@ const FaucetApp = () => {
       setLoading(false);
       setCaptchaToken(null);
       setIsCaptchaVerified(false);
-      // Reset the CAPTCHA
-      if (typeof window !== "undefined") {
-        const captchaElement = document.querySelector(
-          'iframe[src*="recaptcha"]'
-        );
-        if (captchaElement) {
-          captchaElement.parentElement?.click();
-        }
+
+      // Reset the CAPTCHA using the ReCAPTCHA API directly
+      if (typeof window !== "undefined" && window.grecaptcha) {
+        window.grecaptcha.reset(); // Resets the CAPTCHA widget
       }
     }
   };
@@ -160,7 +164,7 @@ const FaucetApp = () => {
   const captchaSection = (
     <div className="mt-4 flex justify-center">
       <ReCAPTCHA
-        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
         onChange={handleCaptchaChange}
         theme="dark"
       />
