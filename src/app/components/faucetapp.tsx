@@ -41,6 +41,7 @@ const FaucetApp = () => {
   >([]);
   const [balance, setBalance] = useState<number | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [isCaptchaVerified, setIsCaptchaVerified] = useState(false);
 
   useEffect(() => {
     const checkNetwork = async () => {
@@ -69,6 +70,11 @@ const FaucetApp = () => {
     loadTransactions();
   }, []);
 
+  const handleCaptchaChange = (token: string | null) => {
+    setCaptchaToken(token);
+    setIsCaptchaVerified(!!token);
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -79,9 +85,28 @@ const FaucetApp = () => {
         throw new Error("Please complete the CAPTCHA");
       }
 
+      // Verify CAPTCHA first
+      const captchaVerified = await SecurityUtils.verifyCaptcha(captchaToken);
+      if (!captchaVerified) {
+        throw new Error("CAPTCHA verification failed. Please try again.");
+      }
+
+      // Check rate limit
       if (!(await SecurityUtils.verifyIpLimit("user-ip"))) {
         throw new Error("Rate limit exceeded. Please try again later.");
       }
+
+      const captchaResponse = await fetch("/api/verifyCaptcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      const captchaResult = await captchaResponse.json();
+
+      if (!captchaResult.success) {
+        throw new Error("CAPTCHA verification failed");
+      }
+
       const result = await requestAirdrop(wallet, network);
 
       if (result.success) {
@@ -94,16 +119,7 @@ const FaucetApp = () => {
         });
 
         setStatus({ type: "success", message: result.message });
-        // Refresh transactions list
-        const stored = TransactionStorage.getTransactions();
-        setRecentDrops(
-          stored.map((tx) => ({
-            address: tx.address.slice(0, 6) + "...",
-            amount: tx.amount,
-            timestamp: new Date(tx.timestamp).toLocaleTimeString(),
-            signature: tx.signature,
-          }))
-        );
+        refreshTransactions();
       } else {
         setStatus({ type: "error", message: result.message });
       }
@@ -118,6 +134,16 @@ const FaucetApp = () => {
     } finally {
       setLoading(false);
       setCaptchaToken(null);
+      setIsCaptchaVerified(false);
+      // Reset the CAPTCHA
+      if (typeof window !== "undefined") {
+        const captchaElement = document.querySelector(
+          'iframe[src*="recaptcha"]'
+        );
+        if (captchaElement) {
+          captchaElement.parentElement?.click();
+        }
+      }
     }
   };
 
@@ -130,14 +156,13 @@ const FaucetApp = () => {
     }
   };
 
-  // Add this to your existing JSX, inside the form
+  // Add this in your form, before the submit button
   const captchaSection = (
-    <div className="mt-4">
+    <div className="mt-4 flex justify-center">
       <ReCAPTCHA
-        sitekey="YOUR_RECAPTCHA_SITE_KEY"
-        onChange={(token: SetStateAction<string | null>) =>
-          setCaptchaToken(token)
-        }
+        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY!}
+        onChange={handleCaptchaChange}
+        theme="dark"
       />
     </div>
   );
@@ -256,9 +281,11 @@ const FaucetApp = () => {
                 />
               </div>
 
+              {captchaSection}
+
               <button
                 type="submit"
-                disabled={loading || !wallet}
+                disabled={loading || !wallet || !isCaptchaVerified}
                 className="w-full py-3 px-6 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold hover:from-purple-500 hover:to-pink-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
@@ -269,6 +296,12 @@ const FaucetApp = () => {
                 )}
                 {loading ? "Airdropping..." : "Request SOL"}
               </button>
+
+              {!isCaptchaVerified && wallet && (
+                <p className="text-yellow-400 text-sm mt-2">
+                  Please complete the CAPTCHA verification to continue
+                </p>
+              )}
             </form>
 
             {status.message && (
@@ -338,3 +371,6 @@ const FaucetApp = () => {
 };
 
 export default FaucetApp;
+function refreshTransactions() {
+  throw new Error("Function not implemented.");
+}

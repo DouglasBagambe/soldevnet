@@ -1,9 +1,9 @@
-// src/lib/security.ts
 import { RateLimiter } from "limiter";
 
 export class SecurityUtils {
   private static ipLimiters: Map<string, RateLimiter> = new Map();
-  private static CAPTCHA_SITE_KEY = "YOUR_RECAPTCHA_SITE_KEY"; // Replace with your key
+  private static CAPTCHA_SITE_KEY = process.env.RECAPTCHA_SITE_KEY || ""; // Default to empty if undefined
+  private static CAPTCHA_SECRET_KEY = process.env.RECAPTCHA_SECRET_KEY || "";
 
   static createIpLimiter(ip: string): RateLimiter {
     const limiter = new RateLimiter({
@@ -30,7 +30,7 @@ export class SecurityUtils {
         {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: `secret=YOUR_RECAPTCHA_SECRET_KEY&response=${token}`,
+          body: `secret=${this.CAPTCHA_SECRET_KEY}&response=${token}`,
         }
       );
       const data = await response.json();
