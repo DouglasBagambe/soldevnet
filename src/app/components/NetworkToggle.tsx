@@ -1,9 +1,16 @@
 import { useState } from "react";
+import { NetworkType } from "../lib/solana";
 
-const NetworkToggle = ({ network, onChange }) => {
+interface NetworkToggleProps {
+  network: NetworkType;
+
+  onChange: (newNetwork: NetworkType) => void;
+}
+
+const NetworkToggle = ({ network, onChange }: NetworkToggleProps) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const handleClick = (newNetwork) => {
+  const handleClick = (newNetwork: NetworkType) => {
     if (network === newNetwork || isAnimating) return;
 
     setIsAnimating(true);
