@@ -9,12 +9,57 @@ import {
   Timer,
   History,
   ExternalLink,
+  Clock,
 } from "lucide-react";
-import { requestAirdrop, getNetworkStatus, NetworkType } from "../lib/solana";
+import {
+  requestAirdrop,
+  getNetworkStatus,
+  NetworkType,
+  getTimeUntilNextAirdrop,
+} from "../lib/solana";
 import { TransactionStorage, WalletUtils } from "../lib/storage";
 import { Connection, clusterApiUrl } from "@solana/web3.js";
 import PhantomWallet from "./PhantomWallet";
 import NetworkToggle from "./NetworkToggle";
+
+const CountdownTimer = ({ address }: { address: string }) => {
+  const [timeRemaining, setTimeRemaining] = useState(0);
+
+  useEffect(() => {
+    if (!address) return;
+
+    const updateTimer = () => {
+      const remainingTime = getTimeUntilNextAirdrop(address);
+      setTimeRemaining(remainingTime);
+    };
+
+    // Initial update
+    updateTimer();
+
+    // Update every second
+    const interval = setInterval(updateTimer, 1000);
+
+    // Cleanup
+    return () => clearInterval(interval);
+  }, [address]);
+
+  // Only show timer if there's time remaining
+  if (!address || timeRemaining <= 0) return null;
+
+  const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+  const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+
+  return (
+    <div className="flex items-center gap-2">
+      <Clock size={16} className="text-yellow-400" />
+      <span className="text-gray-400">Next Airdrop: </span>
+      <span className="text-yellow-400">
+        {hours}h {minutes}m {seconds}s
+      </span>
+    </div>
+  );
+};
 
 const FaucetApp = () => {
   const [wallet, setWallet] = useState("");
@@ -186,32 +231,37 @@ const FaucetApp = () => {
       <div className="relative max-w-4xl mx-auto pt-12 px-4">
         <div className="absolute top-0 left-0 right-0 bg-black/40 backdrop-blur-lg border-b border-white/10 p-2">
           <div className="flex items-center justify-between max-w-4xl mx-auto px-4 text-sm">
-            <div className="flex items-center gap-2">
-              <Wifi
-                size={16}
-                className={
-                  networkStatus.status === "operational"
-                    ? "text-green-400"
-                    : "text-yellow-400"
-                }
-              />
-              <span className="text-gray-400">Network Status: </span>
-              <span
-                className={
-                  networkStatus.status === "operational"
-                    ? "text-green-400"
-                    : "text-yellow-400"
-                }
-              >
-                {networkStatus.status.charAt(0).toUpperCase() +
-                  networkStatus.status.slice(1)}
-              </span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Wifi
+                  size={16}
+                  className={
+                    networkStatus.status === "operational"
+                      ? "text-green-400"
+                      : "text-yellow-400"
+                  }
+                />
+                <span className="text-gray-400">Network Status: </span>
+                <span
+                  className={
+                    networkStatus.status === "operational"
+                      ? "text-green-400"
+                      : "text-yellow-400"
+                  }
+                >
+                  {networkStatus.status.charAt(0).toUpperCase() +
+                    networkStatus.status.slice(1)}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Timer size={16} className="text-purple-400" />
+                <span className="text-gray-400">Latency: </span>
+                <span className="text-purple-400">
+                  {networkStatus.latency}ms
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Timer size={16} className="text-purple-400" />
-              <span className="text-gray-400">Latency: </span>
-              <span className="text-purple-400">{networkStatus.latency}ms</span>
-            </div>
+            <CountdownTimer address={wallet} />
           </div>
         </div>
 
@@ -278,26 +328,24 @@ const FaucetApp = () => {
                     Verification: What is {verificationQuestion.num1} +{" "}
                     {verificationQuestion.num2}?
                   </label>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full">
                     <input
                       type="number"
                       value={userAnswer}
                       onChange={(e) => setUserAnswer(e.target.value)}
-                      className="flex-1 px-4 py-2 rounded-lg bg-black/30 border border-purple-500/30 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Enter your answer"
+                      className="w-2/3 px-4 py-2 rounded-lg bg-black/30 border border-purple-500/30 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Answer"
                     />
                     <button
                       type="button"
                       onClick={handleVerification}
-                      className="flex-1 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all"
-                      style={{ flexShrink: 0 }}
+                      className="w-1/3 px-4 py-2 rounded-lg bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-all"
                     >
                       Verify
                     </button>
                   </div>
                 </div>
               </div>
-
               <button
                 type="submit"
                 disabled={loading || !wallet || !isVerified}
@@ -398,12 +446,12 @@ const FaucetApp = () => {
 
         <div className="mt-8 text-center text-sm">
           <p className="text-gray-500">
-            Need help? Join our
+            Need
             <a
-              href="#"
+              href="https://solana.com/developers/guides/getstarted/solana-token-airdrop-and-faucets"
               className="text-purple-400 hover:text-purple-300 ml-1 transition-colors"
             >
-              Discord community
+              help?
             </a>
           </p>
         </div>
