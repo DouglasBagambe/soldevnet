@@ -15,34 +15,57 @@ interface NetworkResponse {
   error?: string;
 }
 
-const AIRDROP_AMOUNT = 1 * LAMPORTS_PER_SOL;
+interface AirdropRecord {
+  timestamp: number;
+  amount: number;
+}
+
 const MAX_RETRIES = 3;
 const RATE_LIMIT_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_DAILY_SOL = 5; // Maximum SOL per 24 hours
 
 class RateLimit {
-  private static airdrops: Map<string, number[]> = new Map();
+  private static airdrops: Map<string, AirdropRecord[]> = new Map();
 
-  static isRateLimited(address: string): boolean {
+  static isRateLimited(address: string, requestedAmount: number): boolean {
     const drops = this.airdrops.get(address) || [];
     const recentDrops = drops.filter(
-      (timestamp) => Date.now() - timestamp < RATE_LIMIT_DURATION
+      (drop) => Date.now() - drop.timestamp < RATE_LIMIT_DURATION
+    );
+
+    // Calculate total SOL received in the last 24 hours
+    const totalReceivedSOL = recentDrops.reduce(
+      (sum, drop) => sum + drop.amount,
+      0
     );
 
     this.airdrops.set(address, recentDrops);
-    return recentDrops.length >= 2;
+    return totalReceivedSOL + requestedAmount > MAX_DAILY_SOL;
   }
 
-  static recordAirdrop(address: string): void {
+  static recordAirdrop(address: string, amount: number): void {
     const drops = this.airdrops.get(address) || [];
-    drops.push(Date.now());
+    drops.push({ timestamp: Date.now(), amount });
     this.airdrops.set(address, drops);
+  }
+
+  static getRemainingAllowance(address: string): number {
+    const drops = this.airdrops.get(address) || [];
+    const recentDrops = drops.filter(
+      (drop) => Date.now() - drop.timestamp < RATE_LIMIT_DURATION
+    );
+    const totalReceived = recentDrops.reduce(
+      (sum, drop) => sum + drop.amount,
+      0
+    );
+    return Math.max(0, MAX_DAILY_SOL - totalReceived);
   }
 
   static getTimeUntilNext(address: string): number {
     const drops = this.airdrops.get(address) || [];
     if (drops.length === 0) return 0;
 
-    const oldestDrop = Math.min(...drops);
+    const oldestDrop = Math.min(...drops.map((drop) => drop.timestamp));
     return Math.max(0, RATE_LIMIT_DURATION - (Date.now() - oldestDrop));
   }
 }
@@ -58,7 +81,8 @@ export const validateWallet = (address: string): boolean => {
 
 export const requestAirdrop = async (
   address: string,
-  network: NetworkType = "devnet"
+  network: NetworkType = "devnet",
+  amount: number = 1 // Default to 1 SOL if not specified
 ): Promise<NetworkResponse> => {
   if (!validateWallet(address)) {
     return {
@@ -68,7 +92,23 @@ export const requestAirdrop = async (
     };
   }
 
-  if (RateLimit.isRateLimited(address)) {
+  if (amount <= 0 || amount > 5) {
+    return {
+      success: false,
+      message: "Invalid amount. Please request between 1 and 5 SOL",
+      error: "INVALID_AMOUNT",
+    };
+  }
+
+  if (RateLimit.isRateLimited(address, amount)) {
+    const remainingAllowance = RateLimit.getRemainingAllowance(address);
+    if (remainingAllowance > 0) {
+      return {
+        success: false,
+        message: `You can only request up to ${remainingAllowance} more SOL in the next 24 hours`,
+        error: "RATE_LIMITED",
+      };
+    }
     const waitTime = RateLimit.getTimeUntilNext(address);
     const hours = Math.ceil(waitTime / (1000 * 60 * 60));
     return {
@@ -80,22 +120,18 @@ export const requestAirdrop = async (
 
   const connection = new Connection(clusterApiUrl(network));
   const publicKey = new PublicKey(address);
+  const lamports = amount * LAMPORTS_PER_SOL;
 
   for (let i = 0; i < MAX_RETRIES; i++) {
     try {
-      const signature = await connection.requestAirdrop(
-        publicKey,
-        AIRDROP_AMOUNT
-      );
+      const signature = await connection.requestAirdrop(publicKey, lamports);
       await connection.confirmTransaction(signature);
 
-      RateLimit.recordAirdrop(address);
+      RateLimit.recordAirdrop(address, amount);
 
       return {
         success: true,
-        message: `Successfully airdropped ${
-          AIRDROP_AMOUNT / LAMPORTS_PER_SOL
-        } SOL`,
+        message: `Successfully airdropped ${amount} SOL`,
         signature,
       };
     } catch (error) {
