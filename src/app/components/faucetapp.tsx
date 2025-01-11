@@ -312,6 +312,7 @@ const FaucetApp = () => {
                 <div className="bg-black/30 p-4 rounded-lg border border-purple-500/30">
                   <label className="block text-gray-400 mb-2">SOL Amount</label>
                   <select
+                    title="Select SOL Amount"
                     value={solAmount}
                     onChange={(e) => setSolAmount(Number(e.target.value))}
                     className="w-full px-4 py-2 rounded-lg bg-black/30 border border-purple-500/30 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"

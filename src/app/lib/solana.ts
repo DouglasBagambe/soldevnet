@@ -21,7 +21,7 @@ interface AirdropRecord {
 
 const MAX_RETRIES = 3;
 const COOLDOWN_DURATION = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
-const MAX_DAILY_SOL = 5;
+// const MAX_DAILY_SOL = 5;
 
 class RateLimit {
   private static STORAGE_KEY = "solana-faucet-airdrops";
@@ -47,7 +47,7 @@ class RateLimit {
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify(obj));
   }
 
-  static isRateLimited(address: string, requestedAmount: number): boolean {
+  static isRateLimited(address: string): boolean {
     const airdrops = this.loadAirdrops();
     const drops = airdrops.get(address) || [];
     const lastDrop = drops[drops.length - 1];
@@ -120,7 +120,7 @@ export const requestAirdrop = async (
     };
   }
 
-  if (RateLimit.isRateLimited(address, amount)) {
+  if (RateLimit.isRateLimited(address)) {
     const waitTime = RateLimit.getTimeUntilNext(address);
     const minutes = Math.ceil(waitTime / (1000 * 60));
     const hours = Math.floor(minutes / 60);

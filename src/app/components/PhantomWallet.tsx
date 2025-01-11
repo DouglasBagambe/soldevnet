@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { Button } from "../ui/button";
 import { Wallet, ExternalLink, Loader2 } from "lucide-react";
+import { NetworkType } from "../lib/solana";
 
 interface PhantomWalletProps {
   onAddressChange: (address: string | null) => void;
-  onNetworkChange: (network: string) => void;
+
+  onNetworkChange: (network: NetworkType) => void;
+}
+
+interface Phantom {
+  isPhantom: boolean;
+  publicKey: { toString: () => string };
+  connect: () => Promise<void>;
+  on: (event: string, handler: (arg?: unknown) => void) => void;
 }
 
 const PhantomWallet = ({
@@ -19,7 +28,7 @@ const PhantomWallet = ({
   useEffect(() => {
     const checkPhantom = async () => {
       try {
-        const phantom = (window as any).solana;
+        const phantom = (window as unknown as { solana?: Phantom }).solana;
         if (phantom?.isPhantom) {
           phantom.on("connect", () => {
             setConnected(true);
@@ -32,8 +41,8 @@ const PhantomWallet = ({
             setPublicKey(null);
             onAddressChange(null);
           });
-          phantom.on("networkChanged", (network: string) => {
-            onNetworkChange(network);
+          phantom.on("networkChanged", (arg?: unknown) => {
+            return onNetworkChange(arg as NetworkType);
           });
         }
       } catch (error) {
@@ -46,7 +55,7 @@ const PhantomWallet = ({
 
   const connectWallet = async () => {
     try {
-      const phantom = (window as any).solana;
+      const phantom = (window as unknown as { solana?: Phantom }).solana;
       if (phantom?.isPhantom) {
         setLoading(true);
         await phantom.connect();
