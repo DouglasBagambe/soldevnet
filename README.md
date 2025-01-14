@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SolDevNet
+
+SolDevNet is a simple Solana Devnet Airdrop Faucet app built with Next.js. This tool allows users to request free SOL tokens on the Solana Devnet for testing and development purposes.
+
+## Features
+
+- **Airdrop SOL Tokens**: Request test SOL to your Solana Devnet wallet.
+- **User-Friendly Interface**: Easy-to-use interface for developers and testers.
+- **Next.js Powered**: Fast and efficient with server-side rendering.
+
+## Prerequisites
+
+Ensure you have the following installed:
+
+- [Node.js](https://nodejs.org/) (v16 or higher)
+- [Yarn](https://yarnpkg.com/) (or `npm` if preferred)
 
 ## Getting Started
 
-First, run the development server:
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/DouglasBagambe/soldevnet.git
+   cd soldevnet
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. **Install dependencies:**
+   ```bash
+   yarn install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Run the development server:**
+   ```bash
+   yarn dev
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+4. **Open in your browser:**
+   Navigate to [http://localhost:3000](http://localhost:3000) to access the app.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How to Use
 
-## Learn More
+1. Enter your Solana Devnet wallet address in the input field.
+2. Click the "Request Airdrop" button.
+3. Wait for the confirmation message to verify the transaction.
 
-To learn more about Next.js, take a look at the following resources:
+## Deployment
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+To deploy your app, you can use platforms like [Vercel](https://vercel.com/) or [Netlify](https://www.netlify.com/). For example, with Vercel:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Install Vercel CLI:**
+   ```bash
+   yarn global add vercel
+   ```
 
-## Deploy on Vercel
+2. **Deploy the app:**
+   ```bash
+   vercel
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is open-source and available under the [MIT License](LICENSE).
+
+## Acknowledgments
+
+- Built on the Solana Devnet
+- Developed using Next.js
+
+## Contributing
+
+Contributions are welcome! Feel free to submit issues or pull requests to improve the app.
+
+---
+🚀
