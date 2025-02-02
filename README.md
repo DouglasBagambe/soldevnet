@@ -1,5 +1,6 @@
 # SolDevNet
 
+
 SolDevNet is a simple Solana Devnet Airdrop Faucet app built with Next.js. This tool allows users to request free SOL tokens on the Solana Devnet for testing and development purposes.
 
 ## Features
